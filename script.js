@@ -139,7 +139,7 @@ async function salvar() {
       body: JSON.stringify(payload)
     });
     alert("Tratativa guardada com sucesso!");
-    goTo('ocorrencias'); 
+    goTo('filial'); 
   } catch (e) {
     alert("Erro ao enviar. Verifique a conexão.");
   } finally {
