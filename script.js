@@ -3,6 +3,9 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzmlnKgbkyE7Ij9Ez6k7z4i
 let listaGeral = []; 
 let estado = { filial: '', motorista: '', idOcorrencia: null };
 
+// Variável para guardar o gráfico em memória
+let chartInstance = null;
+
 window.onload = init;
 
 async function init() {
@@ -13,13 +16,23 @@ async function init() {
     
     const data = await resp.json();
     
-    // Mapeamento pelas novas colunas da "base faltas"
     listaGeral = data.slice(1).map((row, index) => ({
-      ID: index,           // Criamos um ID único baseado na linha
-      MOTORISTA: row[0],   // Coluna B
-      PEDIDOS: row[2],     // Coluna D
-      FILIAL: row[3],      // Coluna E
-      DESCRIÇÃO: row[11]   // Coluna M
+      ID: index,
+      MOTORISTA: row[0],
+      PEDIDOS: row[2],
+      FILIAL: row[3],
+      
+      // Aqui lemos as Faltas Mês a Mês das colunas F a K (Índices 5 a 10)
+      FALTAS_MESES: [
+        Number(row[5]) || 0, // JAN (F)
+        Number(row[6]) || 0, // FEV (G)
+        Number(row[7]) || 0, // MAR (H)
+        Number(row[8]) || 0, // ABR (I)
+        Number(row[9]) || 0, // MAI (J)
+        Number(row[10]) || 0 // JUN (K)
+      ],
+      
+      DESCRIÇÃO: row[11]
     }));
     
     renderFiliais();
@@ -69,8 +82,54 @@ function renderMotoristas() {
 
 function selMot(m) { 
   estado.motorista = m; 
-  renderOcorrencias(); // Salta a etapa dos meses e vai direto para ocorrências
-  goTo('ocorrencias'); 
+  renderGrafico(); // Desenha o gráfico primeiro
+  renderOcorrencias(); // Prepara a lista de ocorrências no fundo
+  goTo('grafico'); // Navega para o gráfico
+}
+
+// === NOVA FUNÇÃO DO GRÁFICO ===
+function renderGrafico() {
+  document.getElementById('grafico-mot-nome').innerText = estado.motorista;
+
+  const filtrados = listaGeral.filter(d => String(d.MOTORISTA).trim() === String(estado.motorista));
+  
+  // Somatório das faltas deste motorista em todos os meses
+  let totaisFaltas = [0, 0, 0, 0, 0, 0];
+  filtrados.forEach(d => {
+    for (let i = 0; i < 6; i++) {
+      totaisFaltas[i] += d.FALTAS_MESES[i];
+    }
+  });
+
+  const ctx = document.getElementById('meuGrafico').getContext('2d');
+
+  // Destrói o gráfico antigo caso o utilizador clique num segundo motorista
+  if (chartInstance) {
+    chartInstance.destroy();
+  }
+
+  // Desenha o novo Gráfico de Barras
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN'],
+      datasets: [{
+        label: 'Qtd de Faltas',
+        data: totaisFaltas,
+        backgroundColor: '#C2410C',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { 
+          beginAtZero: true, 
+          ticks: { precision: 0 } // Garante que o eixo vertical não tenha números com vírgula (ex: 1.5)
+        }
+      }
+    }
+  });
 }
 
 function renderOcorrencias() {
@@ -116,7 +175,6 @@ async function salvar() {
   btn.innerText = "A guardar...";
   btn.disabled = true;
 
-  // Usa o ID para recuperar a string completa dos pedidos antes de enviar
   const ocorrencia = listaGeral.find(d => d.ID === estado.idOcorrencia);
 
   const payload = {
@@ -139,7 +197,19 @@ async function salvar() {
       body: JSON.stringify(payload)
     });
     alert("Tratativa guardada com sucesso!");
+    
+    // Limpa os campos
+    document.getElementById('inp-analise').value = '';
+    document.getElementById('inp-acoes').value = '';
+    document.getElementById('inp-preventiva').value = '';
+    document.getElementById('inp-resp').value = '';
+    document.getElementById('inp-prazo').value = '';
+    document.getElementById('inp-realizado').value = '';
+    document.getElementById('inp-status').value = 'Pendente';
+    document.getElementById('inp-periodo').value = '';
+
     goTo('filial'); 
+    
   } catch (e) {
     alert("Erro ao enviar. Verifique a conexão.");
   } finally {
