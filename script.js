@@ -16,10 +16,10 @@ async function init() {
     // Mapeamento pelas novas colunas da "base faltas"
     listaGeral = data.slice(1).map((row, index) => ({
       ID: index,           // Criamos um ID único baseado na linha
-      MOTORISTA: row[1],   // Coluna B
-      PEDIDOS: row[3],     // Coluna D
-      FILIAL: row[4],      // Coluna E
-      DESCRIÇÃO: row[12]   // Coluna M
+      MOTORISTA: row[0],   // Coluna B
+      PEDIDOS: row[2],     // Coluna D
+      FILIAL: row[3],      // Coluna E
+      DESCRIÇÃO: row[11]   // Coluna M
     }));
     
     renderFiliais();
